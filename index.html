@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Self-Growth Skill Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <h1>Self-Growth Skill Tracker</h1>
+      <button id="addSkillBtn" class="btn accent">+ Add Skill</button>
+    </header>
+
+    <section class="stats-row" id="statsRow">
+      <div class="stat">
+        <div class="stat-title">Active</div>
+        <div class="stat-value" id="statActive">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-title">Due Soon</div>
+        <div class="stat-value" id="statDue">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-title">Completed</div>
+        <div class="stat-value" id="statCompleted">0</div>
+      </div>
+    </section>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="active">Active</button>
+      <button class="tab" data-tab="completed">Completed</button>
+    </nav>
+
+    <main>
+      <div id="activeList" class="cards"></div>
+      <div id="completedList" class="cards hidden"></div>
+    </main>
+
+    <footer class="footer">Dark, premium aesthetic · localStorage persistence</footer>
+  </div>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-card">
+      <h2>Add Skill</h2>
+      <form id="skillForm">
+        <label>Skill name<input type="text" name="name" required></label>
+        <label>Category
+          <select name="category" required>
+            <option value="tech">Tech</option>
+            <option value="language">Language</option>
+            <option value="fitness">Fitness</option>
+            <option value="creative">Creative</option>
+            <option value="business">Business</option>
+            <option value="mindset">Mindset</option>
+          </select>
+        </label>
+        <label>Target date<input type="date" name="target" required></label>
+        <label>Initial progress (%)<input type="number" name="progress" min="0" max="100" value="0" required></label>
+        <label>Notes<textarea name="notes" rows="3"></textarea></label>
+        <div class="form-actions">
+          <button type="button" id="cancelBtn" class="btn">Cancel</button>
+          <button type="submit" class="btn accent">Add Skill</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
