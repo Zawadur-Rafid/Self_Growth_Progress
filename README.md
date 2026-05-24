@@ -2,7 +2,7 @@
 
 ## How to Run
 1. Install dependencies: `npm install`
-2. Start the server: `npm start` (or `npm run dev` for development)
+2. Start the server: `npm run start`
 3. Open http://localhost:3000
 
 Data is persisted in `localStorage` (key `sg_skills_v1`).
