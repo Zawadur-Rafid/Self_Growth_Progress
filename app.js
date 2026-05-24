@@ -1,6 +1,4 @@
 (function(){
-  const STORAGE_KEY = 'sg_skills_v1'
-
   // state
   let skills = []
   let currentTab = 'active'
@@ -17,12 +15,15 @@
   const statDue = document.getElementById('statDue')
   const statCompleted = document.getElementById('statCompleted')
 
-  function load(){
-    try{ skills = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') }catch(e){ skills = [] }
-  }
-
-  function save(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(skills))
+  async function load(){
+    try {
+      const res = await fetch('/api/skills');
+      skills = await res.json();
+      render();
+    } catch(e) { 
+      console.error('Failed to load skills', e);
+      skills = []; 
+    }
   }
 
   function daysLeft(targetISO){
@@ -59,8 +60,8 @@
 
     if(skill.status === 'active'){
       // Time Progress Calculation
-      const start = new Date(skill.createdAt).getTime()
-      const end = new Date(skill.targetDate + 'T23:59:59').getTime()
+      const start = new Date(skill.created_at || skill.createdAt).getTime()
+      const end = new Date((skill.target_date || skill.targetDate || '').slice(0,10) + 'T23:59:59').getTime()
       const now = Date.now()
       
       let timePct = 0
@@ -75,7 +76,6 @@
       const timeBar = document.createElement('div'); timeBar.className = 'time-progress-bar'
       timeBar.style.width = timePct + '%'
       
-      // Color logic: Green (0-40), Yellow/Gold (40-80), Red (80-100)
       if (timePct < 40) timeBar.style.backgroundColor = '#7cffc6'
       else if (timePct < 80) timeBar.style.backgroundColor = '#ffcf5c'
       else timeBar.style.backgroundColor = '#ff6b6b'
@@ -88,7 +88,7 @@
     const footer = document.createElement('div'); footer.className='card-footer'
 
     if(skill.status === 'active'){
-      const dl = daysLeft(skill.targetDate)
+      const dl = daysLeft((skill.target_date || skill.targetDate || '').slice(0,10))
       const cd = document.createElement('div'); cd.className='countdown'
       if(dl < 0) { cd.textContent = 'Overdue'; cd.classList.add('red') }
       else if(dl <= 7) { cd.textContent = dl + ' days'; cd.classList.add('red') }
@@ -101,15 +101,22 @@
       actions.style.gap = '8px'
 
       const mark = document.createElement('button'); mark.className='btn'; mark.textContent='Mark Done'
-      mark.addEventListener('click', ()=>{
-        skill.status='completed'; skill.completedAt = new Date().toISOString(); save(); render();
+      mark.addEventListener('click', async ()=>{
+        const completedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        await fetch(`/api/skills/${skill.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'completed', progress: 100, completedAt })
+        });
+        load();
       })
       actions.appendChild(mark)
 
       const del = document.createElement('button'); del.className='btn'; del.textContent='Remove'; del.style.color='#ff6b6b'
-      del.addEventListener('click', ()=>{
+      del.addEventListener('click', async ()=>{
         if(confirm(`Remove "${skill.name}"?`)){
-          skills = skills.filter(s => s.id !== skill.id); save(); render();
+          await fetch(`/api/skills/${skill.id}`, { method: 'DELETE' });
+          load();
         }
       })
       actions.appendChild(del)
@@ -118,7 +125,7 @@
     } else {
       const done = document.createElement('div'); done.innerHTML = '<span class="badge">Goal achieved!</span>'
       footer.appendChild(done)
-      const when = document.createElement('div'); when.className='note'; when.textContent = 'Completed ' + new Date(skill.completedAt||skill.updatedAt||skill.createdAt).toLocaleDateString(); footer.appendChild(when)
+      const when = document.createElement('div'); when.className='note'; when.textContent = 'Completed ' + new Date(skill.completed_at || skill.completedAt || skill.created_at || skill.createdAt).toLocaleDateString(); footer.appendChild(when)
     }
 
     el.appendChild(footer)
@@ -135,22 +142,19 @@
     active.forEach(s=> activeList.appendChild(createCard(s)))
     completed.forEach(s=> completedList.appendChild(createCard(s)))
 
-    // stats
     statActive.textContent = active.length
     statCompleted.textContent = completed.length
-    const dueSoonCount = active.filter(s=> daysLeft(s.targetDate) <= 30).length
+    const dueSoonCount = active.filter(s=> daysLeft((s.target_date || s.targetDate || '').slice(0,10)) <= 30).length
     statDue.textContent = dueSoonCount
 
-    // show/hide tabs
     document.getElementById('activeList').classList.toggle('hidden', currentTab!=='active')
     document.getElementById('completedList').classList.toggle('hidden', currentTab!=='completed')
   }
 
-  // events
   addSkillBtn.addEventListener('click', ()=>{ modal.classList.remove('hidden') })
   cancelBtn.addEventListener('click', ()=>{ modal.classList.add('hidden'); skillForm.reset() })
 
-  skillForm.addEventListener('submit', (e)=>{
+  skillForm.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const fd = new FormData(skillForm)
     const name = fd.get('name').toString().trim()
@@ -159,8 +163,26 @@
     const notes = fd.get('notes').toString()
     const progress = Number(fd.get('progress')||0)
     if(!name||!target) return
-    const skill = { id: Date.now().toString(36)+Math.random().toString(36).slice(2,6), name, category, targetDate: target, notes, progress, status:'active', createdAt: new Date().toISOString() }
-    skills.push(skill); save(); render(); skillForm.reset(); modal.classList.add('hidden')
+    
+    const skill = { 
+      id: Date.now().toString(36)+Math.random().toString(36).slice(2,6), 
+      name, 
+      category, 
+      targetDate: target, 
+      notes, 
+      progress, 
+      status:'active' 
+    }
+    
+    await fetch('/api/skills', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(skill)
+    });
+    
+    load();
+    skillForm.reset(); 
+    modal.classList.add('hidden')
   })
 
   tabs.forEach(t=> t.addEventListener('click', ()=>{
@@ -168,16 +190,6 @@
     t.classList.add('active'); currentTab = t.dataset.tab; render()
   }))
 
-  // init
-  load(); render();
-  
-  // Ensure modal is hidden on initial load by forcing the style if classList is insufficient
+  load();
   modal.classList.add('hidden');
-  
-  // seed example if empty (optional)
-  if(skills.length===0){
-    const sample = { id:'sample1', name:'Learn Spanish', category:'language', targetDate:new Date(Date.now()+1000*60*60*24*45).toISOString().slice(0,10), notes:'Daily 20m practice', progress:12, status:'active', createdAt:new Date().toISOString() }
-    skills.push(sample); save(); render();
-  }
-
 })();
